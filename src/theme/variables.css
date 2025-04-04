@@ -1,0 +1,105 @@
+/* For information on how to create your own theme, please see:
+http://ionicframework.com/docs/theming/ */
+.appbar {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    background-color: #5a94ff;
+    padding: 0 10px;
+}
+
+.box {
+    display: flex;
+    gap: 5px;
+    padding: 5px;
+    color: #000;
+    background-color: #fff;
+    border-radius: 5px;
+    margin-left: 5px;
+}
+
+.auto-print-switch {
+    margin-right: 10px;
+}
+.order-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 30px;
+    border-radius: 10px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    height: 140px;
+    margin-bottom: 16px;
+}
+.order-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    width: 30%;
+}
+.order-status {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+}
+.order-go-detail {
+    width: 30%;
+    display: flex;
+    justify-content: flex-end;
+}
+.btn-back {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #ffbd5a;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.btn-print {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background-color: #00975be6;
+    border-radius: 5px;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.order-detail-box {
+    width: 100%;
+    margin-bottom: 15px;
+    height: calc(100vh - 128px);
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    .header {
+        display: flex;
+        justify-content: space-between;
+    }
+}
+.menu-list {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 50px);
+    overflow-y: auto;
+}
+.order-detail-action {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+.bg-style {
+    --background: #f4f4f4;
+}

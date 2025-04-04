@@ -1,0 +1,7 @@
+{
+  "name": "upos-kitchen-printer",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
