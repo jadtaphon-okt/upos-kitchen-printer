@@ -19,8 +19,11 @@ http://ionicframework.com/docs/theming/ */
     background-color: #fff;
     border-radius: 5px;
     margin-left: 5px;
+    cursor: pointer;
 }
-
+.box:active {
+    background-color: #515151;
+}
 .auto-print-switch {
     margin-right: 10px;
 }

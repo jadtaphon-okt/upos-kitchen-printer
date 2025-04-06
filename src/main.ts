@@ -22,7 +22,7 @@ import '@ionic/vue/css/palettes/dark.system.css'
 
 import './theme/variables.css'
 
-new VConsole()
+// new VConsole()
 
 const app = createApp(App).use(IonicVue).use(router)
 

@@ -78,8 +78,28 @@ export default defineComponent({
             localStorage.setItem('kitchenId', this.kitchen.id)
             localStorage.setItem('kitchenName', this.kitchen.name)
             localStorage.setItem('kitchenCode', this.kitchen.code)
+            try {
+                await axios.get('https://' + this.url)
+            } catch (error) {
+                this.errorToast('Invalid API Endpoint')
+                return
+            }
+            await this.getToken()
 
-            this.$router.push('/')
+            location.href = '/'
+        },
+
+        async getToken() {
+            const payload = {
+                username: 'kitchen',
+                password: '62U13W(Y^Ke^'
+            }
+            try {
+                const res = await axios.post('https://' + this.url + '/api/auth/sign-in', payload)
+                localStorage.setItem('token', res.data.accessToken)
+            } catch (error) {
+                throw new Error('Failed to fetch token')
+            }
         },
 
         async getKitchenList() {

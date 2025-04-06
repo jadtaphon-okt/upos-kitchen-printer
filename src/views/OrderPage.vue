@@ -14,16 +14,16 @@
                         <ion-icon :icon="timeOutline" size="small"></ion-icon>
                         ประวัติ
                     </div>
-                    <div class="box" @click="joinKitchen" style="background-color: ghostwhite">
+                    <!-- <div class="box" @click="openTestMenu" style="background-color: ghostwhite">
                         <ion-icon :icon="printOutline" size="small"></ion-icon>
                         ทดสอบ
-                    </div>
+                    </div> -->
                 </div>
             </div>
         </ion-header>
 
         <ion-content v-if="!showDetail" :fullscreen="true" class="ion-padding bg-style">
-            <div class="order-item" v-for="(item, index) in orderStore" :key="index">
+            <div class="order-item" v-for="item in orderStore">
                 <div class="order-header">
                     <div>Order No: {{ item.orderNo }}</div>
                     <div>Order Date: {{ dayjs(item.orderDate).format('DD/MM/YYYY') }}</div>
@@ -62,9 +62,7 @@
                     <ion-icon :icon="caretBackOutline" style="font-size: 20px"></ion-icon>
                     Go Back
                 </div>
-                <div class="btn-print" @click="printOrder(selectedOrder)">
-                    <ion-icon :icon="print" style="font-size: 20px"></ion-icon>
-                </div>
+                <div class="btn-print" @click="printOrder(selectedOrder)">Print Order</div>
             </div>
         </ion-content>
     </ion-page>
@@ -152,15 +150,38 @@ export default defineComponent({
 
     async mounted() {
         this.printer = new Printer()
-        this.initializePrinter()
+        await this.initializePrinter()
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.isAutoPrint = localStorage.getItem('autoPrint') === 'true'
         this.kitchen = {
             cooking_id: Number(localStorage.getItem('kitchenId')),
-            cooking_code: localStorage.getItem('kitchenName'),
-            cooking_name: localStorage.getItem('kitchenCode')
+            cooking_code: localStorage.getItem('kitchenCode'),
+            cooking_name: localStorage.getItem('kitchenName')
         }
-        this.handshakeWebShocket()
+        if (this.ws) {
+            this.ws.disconnect()
+        }
+
+        const url = localStorage.getItem('apiUrl')
+        this.ws = io(`wss://${url}/ws-orders`)
+
+        this.ws.on('connect', () => {
+            console.log('[WEBSOCKET] connected:', this.ws.id)
+            this.ws.emit('join_cooking', this.kitchen)
+            this.ws.on('test', msg => {
+                console.log('[WEBSOCKET] Test message:', msg)
+            })
+            this.ws.on('new-order', msg => {
+                if (msg.orderList) {
+                    this.orderStore = msg.orderList
+                }
+                if (this.isAutoPrint && msg.newOrder) {
+                    this.printOrder(msg.newOrder)
+                } else if (msg.newOrder) {
+                    this.orderStore.push(msg.newOrder)
+                }
+            })
+        })
     },
 
     watch: {
@@ -170,53 +191,45 @@ export default defineComponent({
     },
 
     methods: {
-        async handshakeWebShocket() {
-            if (this.ws) {
-                this.ws.disconnect()
-            }
-            const url = localStorage.getItem('apiUrl')
-            this.ws = io(`wss://${url}/ws-orders`)
-            console.log(this.ws)
-            this.ws.emit('join_cooking', this.kitchen)
-            this.ws.on('new-order', msg => {
-                this.orderStore = msg.orderList
-                console.log('new-order', msg)
-                // if (this.isAutoPrint) {
-                //     this.printOrder(msg)
-                // } else {
-                //     this.orderStore.push(msg)
-                // }
-            })
-            this.ws.connect()
-        },
+        async handshakeWebShocket() {},
 
-        joinKitchen() {
+        reJoinKitchen() {
             this.ws.emit('join_cooking', this.kitchen)
         },
 
         printOrder(item) {
-            // this.printer.setTextSize(28)
-            // this.printer.setAlignment(2)
-            // this.printer.printText(this.kitchanName)
-            // this.printer.printText('Order No: ' + item.orderNo)
-            // this.printer.printText('Order Date: ' + dayjs(item.orderDate).format('DD/MM/YYYY'))
-            // this.printer.setTextSize(26)
-            // this.printer.printText('Menu:')
-            // for (let i = 0; i < item.orderItems.length; i++) {
-            //     this.printer.printText(`${i + 1}. ${item.orderItems[i].name}`)
-            // }
-            // this.printer.printText('=========================')
-            // this.printer.setTextSize(24)
-            // this.printer.printText('Note: Please serve the order as soon as possible.')
-            // this.printer.partialCut()
-            // this.printer.printAndFeedPaper(50)
+            this.printer.setTextSize(28)
+            this.printer.setAlignment(2)
+            this.printer.printText(this.kitchanName)
+            this.printer.printText('Order No: ' + item.orderNo)
+            this.printer.printText('Order Date: ' + dayjs(item.orderDate).format('DD/MM/YYYY'))
+            this.printer.setTextSize(26)
+            this.printer.printText('Menu:')
+            for (let i = 0; i < item.orderItems.length; i++) {
+                this.printer.printText(`${i + 1}. ${item.orderItems[i].name}`)
+            }
+            this.printer.printText('=========================')
+            this.printer.setTextSize(24)
+            this.printer.printText('Note: Please serve the order as soon as possible.')
+            this.printer.partialCut()
+            this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
             this.orderStore = this.orderStore.filter(order => order.id !== item.id)
         },
 
         async updateStatusPrint(id) {
-            const url = localStorage.getItem('apiUrl')
-            await axios.put(`https://${url}/api/order/print/${id}`)
+            const value = localStorage.getItem('apiUrl')
+            const headers = {
+                Authorization: 'Bearer ' + localStorage.getItem('token')
+            }
+            const res = await axios.put(
+                `https://${value}/api/order/print/${id}`,
+                {},
+                { headers: headers }
+            )
+            if (res) {
+                this.showDetail = false
+            }
         },
 
         goToConfig() {
@@ -229,7 +242,7 @@ export default defineComponent({
         },
 
         async initializePrinter() {
-            console.log('Initializing printer...')
+            console.log('[PRINTER] Initializing...')
             const loading = await loadingController.create({
                 message: 'Connecting to printer...',
                 spinner: 'crescent',
@@ -238,16 +251,15 @@ export default defineComponent({
             loading.present()
             try {
                 this.isConnect = await this.printer.connect()
-                console.log('Printer connected:', this.isConnect)
+                console.log('[PRINTER] Connected:', this.isConnect)
                 if (this.isConnect) {
-                    console.log('Printer connected successfully')
                     this.printer.initPrinter()
-                    console.log('Printer initialized')
+                    console.log('[PRINTER] Initialized')
                     this.getPrinterStatus(1)
-                    console.log('Printer status checked')
+                    console.log('[PRINTER] Status checked')
                 }
             } catch (error) {
-                console.error('Error initializing printer:', error)
+                console.error('[PRINTER] Error initializing:', error)
                 loading.dismiss()
             } finally {
                 setTimeout(() => {

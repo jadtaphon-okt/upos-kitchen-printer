@@ -2,14 +2,21 @@
     <ion-page>
         <ion-header>
             <div class="appbar">
-                <div class="title" @click="goToConfig">{{ kitchanName }}</div>
+                <div
+                    class="title"
+                    style="display: flex; align-items: center; gap: 5px"
+                    @click="$router.back()"
+                >
+                    <ion-icon style="margin-top: 2px" :icon="arrowBackOutline"></ion-icon>
+                    {{ kitchanName }}
+                </div>
                 <div class="right-side">
                     <ion-datetime-button class="datepicker" datetime="datetime">
                     </ion-datetime-button>
                     <select v-model="form.status" class="no-input" style="color: black">
-                        <option value="all">ทั้งหมด</option>
-                        <option value="print">พิมพ์</option>
-                        <option value="notPrint">ยังไม่พิมพ์</option>
+                        <option value="ALL">ทั้งหมด</option>
+                        <option value="PRINTED">พิมพ์</option>
+                        <option value="PRINT">ยังไม่พิมพ์</option>
                     </select>
                     <input
                         class="no-input"
@@ -67,10 +74,7 @@
                     <ion-icon :icon="caretBackOutline" style="font-size: 20px"></ion-icon>
                     Go Back
                 </div>
-                <div class="btn-print" @click="printOrder(selectedOrder)">
-                    Print Order
-                    <ion-icon :icon="print" style="font-size: 20px"></ion-icon>
-                </div>
+                <div class="btn-print" @click="printOrder(selectedOrder)">Print Order</div>
             </div>
         </ion-content>
         <ion-modal :keep-contents-mounted="true">
@@ -98,7 +102,7 @@ import {
     loadingController,
     IonModal
 } from '@ionic/vue'
-import { arrowForwardCircleOutline, printOutline } from 'ionicons/icons'
+import { arrowForwardCircleOutline, printOutline, arrowBackOutline } from 'ionicons/icons'
 import { defineComponent } from 'vue'
 import axios from 'axios'
 import Printer from '../services/imin-printer.esm.browser'
@@ -128,7 +132,7 @@ export default defineComponent({
         return {
             form: {
                 orderNo: '',
-                status: 'all',
+                status: 'PRINT',
                 date: new Date().toISOString()
             },
             printer: null,
@@ -142,72 +146,9 @@ export default defineComponent({
             menuList: ['Menu 1', 'Menu 2', 'Menu 3'],
             arrowForwardCircleOutline,
             printOutline,
+            arrowBackOutline,
             selectedOrder: null,
-            orderList: [
-                {
-                    id: 1825,
-                    createdAt: '2025-04-03T14:16:06.038Z',
-                    updatedAt: '2025-04-03T14:16:06.038Z',
-                    deletedAt: null,
-                    orderNo: '1202504030002',
-                    orderDate: '2025-04-03T14:16:06.044Z',
-                    orderStatus: 'select_payment',
-                    receivedStatus: 'cooking',
-                    paid: NaN,
-                    change: NaN,
-                    serviceChargeRate: 0,
-                    serviceCharge: 0,
-                    total: 250,
-                    vat: 0,
-                    vatRate: 0,
-                    discount: 0,
-                    grandTotal: 250,
-                    remark: '',
-                    voidReason: null,
-                    roomNo: '3901',
-                    Hn: 'ีรพ TEST',
-                    customerName: 'วินัย ใจสะอาด',
-                    isRead: false,
-                    isPrint: 'PRINT',
-                    branch: {
-                        id: 1,
-                        createdAt: '2024-08-24T13:22:16.337Z',
-                        updatedAt: '2024-08-24T13:22:16.337Z',
-                        deletedAt: null,
-                        code: '00000',
-                        name: 'Headquarter',
-                        address: 'BKK'
-                    },
-                    device: {
-                        id: 2,
-                        createdAt: '2024-11-04T15:11:06.023Z',
-                        updatedAt: '2024-11-04T15:11:06.023Z',
-                        deletedAt: null,
-                        code: 'WEB001',
-                        name: 'WEB001'
-                    },
-                    orderItems: [
-                        {
-                            id: 1,
-                            name: 'แกงเขียวหวานทำจากนมถั่วเหลืองเสริฟกับข้าวกล้องหอมมะลิ และทอดมันแพลนต์เบส (Vegan)',
-                            price: 250,
-                            cooking: 'ครัวฝรั่ง'
-                        },
-                        {
-                            id: 2,
-                            name: 'ข้าวผัดกะเพราแพลนต์เบส (Vegan)',
-                            price: 250,
-                            cooking: 'ครัวฝรั่ง'
-                        },
-                        {
-                            id: 3,
-                            name: 'ข้าวผัดกะเพราแพลนต์เบส (Vegan)',
-                            price: 250,
-                            cooking: 'ครัวฝรั่ง'
-                        }
-                    ]
-                }
-            ]
+            orderList: []
         }
     },
 
@@ -233,7 +174,7 @@ export default defineComponent({
 
     methods: {
         async initializePrinter() {
-            console.log('Initializing printer...')
+            console.log('[PRINTER] Initializing printer...')
             const loading = await loadingController.create({
                 message: 'Connecting to printer...',
                 spinner: 'crescent',
@@ -242,16 +183,15 @@ export default defineComponent({
             loading.present()
             try {
                 this.isConnect = await this.printer.connect()
-                console.log('Printer connected:', this.isConnect)
+                console.log('[PRINTER] Connected:', this.isConnect)
                 if (this.isConnect) {
-                    console.log('Printer connected successfully')
                     this.printer.initPrinter()
-                    console.log('Printer initialized')
+                    console.log('[PRINTER] Initialized')
                     this.getPrinterStatus(1)
-                    console.log('Printer status checked')
+                    console.log('[PRINTER] Status checked')
                 }
             } catch (error) {
-                console.error('Error initializing printer:', error)
+                console.error('[PRINTER] Error initializing:', error)
                 loading.dismiss()
             } finally {
                 setTimeout(() => {
@@ -291,14 +231,40 @@ export default defineComponent({
 
         async getOrderList() {
             const value = localStorage.getItem('apiUrl')
+            const params = {
+                cooking_id: localStorage.getItem('kitchenId'),
+                date: dayjs(this.form.date).format('YYYY-MM-DD')
+            }
+            if (this.form.status !== 'ALL') {
+                params.isPrint = this.form.status,
+            }
+            if (this.form.orderNo) {
+                params.orderNo = this.form.orderNo
+            }
+            const headers = {
+                Authorization: 'Bearer ' + localStorage.getItem('token')
+            }
             const res = await axios.get(`https://${value}/api/order/history`, {
-                params: {
-                    orderNo: this.form.orderNo,
-                    status: this.form.status,
-                    date: this.form.date
-                }
+                params: params,
+                headers: headers
             })
-            console.log(res.data)
+            this.orderList = res.data
+        },
+
+        async updateStatusPrint(id) {
+            const value = localStorage.getItem('apiUrl')
+            const headers = {
+                Authorization: 'Bearer ' + localStorage.getItem('token')
+            }
+            const res = await axios.put(
+                `https://${value}/api/order/print/${id}`,
+                {},
+                { headers: headers }
+            )
+            if (res) {
+                this.showDetail = false
+                this.getOrderList()
+            }
         }
     }
 })
