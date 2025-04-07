@@ -33,3 +33,5 @@ firebase.json
 /platforms
 /plugins
 /www
+
+resources/android/**/*

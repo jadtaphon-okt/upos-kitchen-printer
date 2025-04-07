@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">upos-kitchen-printer</string>
-    <string name="title_activity_main">upos-kitchen-printer</string>
-    <string name="package_name">io.ionic.starter</string>
-    <string name="custom_url_scheme">io.ionic.starter</string>
+    <string name="app_name">UPOS Kitchen Printer</string>
+    <string name="title_activity_main">UPOS Kitchen Printer</string>
+    <string name="package_name">okt.upos.kitchen_printer</string>
+    <string name="custom_url_scheme">okt.upos.kitchen_printer</string>
 </resources>

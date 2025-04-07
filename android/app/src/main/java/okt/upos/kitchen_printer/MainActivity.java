@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package okt.upos.kitchen_printer;
 
 import com.getcapacitor.BridgeActivity;
 

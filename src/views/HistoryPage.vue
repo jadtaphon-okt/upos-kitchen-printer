@@ -236,7 +236,7 @@ export default defineComponent({
                 date: dayjs(this.form.date).format('YYYY-MM-DD')
             }
             if (this.form.status !== 'ALL') {
-                params.isPrint = this.form.status,
+                params.isPrint = this.form.status
             }
             if (this.form.orderNo) {
                 params.orderNo = this.form.orderNo
