@@ -8,7 +8,15 @@ http://ionicframework.com/docs/theming/ */
     align-items: center;
     color: #fff;
     background-color: #5a94ff;
-    padding: 0 10px;
+    padding: 0 40px;
+}
+
+.appbar-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    font-size: 28px;
 }
 
 .box {

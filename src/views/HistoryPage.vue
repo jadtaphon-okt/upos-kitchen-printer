@@ -3,12 +3,10 @@
         <ion-header>
             <div class="appbar">
                 <div
-                    class="title"
-                    style="display: flex; align-items: center; gap: 5px"
-                    @click="$router.back()"
-                >
-                    <ion-icon style="margin-top: 2px" :icon="arrowBackOutline"></ion-icon>
-                    {{ kitchanName }}
+                    style="display: flex; align-items: center; gap: 5px;"
+                    @click="$router.back()">
+                    <ion-icon style="margin-top: 2px;" :icon="arrowBackOutline"></ion-icon>
+                    <span class="appbar-title">{{ kitchanName }}</span>
                 </div>
                 <div class="right-side">
                     <ion-datetime-button class="datepicker" datetime="datetime">
@@ -32,7 +30,7 @@
         <ion-content v-if="!showDetail" :fullscreen="true" class="ion-padding bg-style">
             <div
                 class="order-item"
-                :style="{ backgroundColor: order.isPrint === 'PRINT' ? '#B9F6CA' : '#FFCDD2' }"
+                :style="{ backgroundColor: order.isPrint === 'PRINT' ? '#FFCDD2' : '#B9F6CA' }"
                 v-for="(order, index) in orderList"
                 :key="index"
             >
@@ -46,8 +44,8 @@
                     ></ion-icon>
                 </div>
                 <div class="order-status">
-                    <div>Order Status: {{ order.orderStatus }}</div>
-                    <div>Print Status: {{ order.isPrint }}</div>
+                    <div>Status Food: {{ getStatusOrder(order.orderStatus) }}</div>
+                    <div>Print Status: {{ order.isPrint === 'PRINT'? 'Not Printed' : 'Printed' }}</div>
                 </div>
                 <div class="order-go-detail" @click="openOrderDetail(order)">
                     <ion-icon :icon="arrowForwardCircleOutline" size="large"></ion-icon>
@@ -107,6 +105,8 @@ import { defineComponent } from 'vue'
 import axios from 'axios'
 import Printer from '../services/imin-printer.esm.browser'
 import { Preferences } from '@capacitor/preferences'
+import { getStatusOrderDisplay } from '@/plugins/utils'
+
 export default defineComponent({
     name: 'HistoryPage',
 
@@ -173,6 +173,9 @@ export default defineComponent({
     },
 
     methods: {
+        getStatusOrder (status) {
+            return getStatusOrderDisplay(status)
+        },
         async initializePrinter() {
             console.log('[PRINTER] Initializing printer...')
             const loading = await loadingController.create({
@@ -201,19 +204,20 @@ export default defineComponent({
         },
 
         printOrder(item) {
-            this.printer.setTextSize(28)
+            this.printer.setTextSize(38)
             this.printer.setAlignment(2)
             this.printer.printText(this.kitchanName)
+            this.printer.setTextSize(28)
             this.printer.printText('Order No: ' + item.orderNo)
             this.printer.printText('Order Date: ' + dayjs(item.orderDate).format('DD/MM/YYYY'))
             this.printer.setTextSize(26)
             this.printer.printText('Menu:')
             for (let i = 0; i < item.orderItems.length; i++) {
-                this.printer.printText(`${i + 1}. ${item.orderItems[i].name}`)
+                this.printer.printText(`${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`)
             }
             this.printer.printText('=========================')
             this.printer.setTextSize(24)
-            this.printer.printText('Note: Please serve the order as soon as possible.')
+            this.printer.printText(`Note: ${item.orderNote}`)
             this.printer.partialCut()
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
