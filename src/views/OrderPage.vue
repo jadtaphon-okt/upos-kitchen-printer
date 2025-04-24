@@ -34,7 +34,9 @@
                     ></ion-icon>
                 </div>
                 <div class="order-status">
-                    <div>Print Status: {{ item.isPrint === 'PRINT'? 'Not Printed' : 'Printed' }}</div>
+                    <div>
+                        Print Status: {{ item.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}
+                    </div>
                     <div>Order Status: {{ getStatusOrder(item.orderStatus) }}</div>
                 </div>
                 <div class="order-go-detail" @click="openOrderDetail(item)">
@@ -106,6 +108,7 @@ import axios from 'axios'
 import { getStatusOrderDisplay } from '@/plugins/utils'
 export default defineComponent({
     name: 'OrderPage',
+
     components: {
         IonContent,
         IonHeader,
@@ -163,40 +166,50 @@ export default defineComponent({
             this.ws.disconnect()
         }
 
-        const url = localStorage.getItem('apiUrl')
-        this.ws = io(`wss://${url}/ws-orders`)
-
-        this.ws.on('connect', () => {
-            console.log('[WEBSOCKET] connected:', this.ws.id)
-            this.ws.emit('join_cooking', this.kitchen)
-            this.ws.on('test', msg => {
-                console.log('[WEBSOCKET] Test message:', msg)
-            })
-            this.ws.on('new-order', msg => {
-                if (msg.orderList) {
-                    this.orderStore = msg.orderList
-                }
-                if (this.isAutoPrint && msg.newOrder) {
-                    this.printOrder(msg.newOrder)
-                } else if (msg.newOrder) {
-                    this.orderStore.push(msg.newOrder)
-                }
-            })
-        })
+        await this.handshakeWebShocket()
     },
 
     watch: {
         isAutoPrint(val) {
             localStorage.setItem('autoPrint', val)
+        },
+        $route(to, from) {
+            if (from.name === 'OrderPage') {
+                this.ws.disconnect()
+            } else {
+                this.handshakeWebShocket()
+            }
         }
     },
 
     methods: {
-        getStatusOrder (status) {
+        getStatusOrder(status) {
             return getStatusOrderDisplay(status)
         },
 
-        async handshakeWebShocket() {},
+        async handshakeWebShocket() {
+            const url = localStorage.getItem('apiUrl')
+            this.ws = io(`wss://${url}/ws-orders`)
+
+            this.ws.on('connect', () => {
+                console.log('[WEBSOCKET] connected:', this.ws.id)
+                this.ws.emit('join_cooking', this.kitchen)
+                this.ws.on('new-order', msg => {
+                    if (msg.orderList) {
+                        this.orderStore = msg.orderList
+                    }
+                    if (this.isAutoPrint && msg.newOrder) {
+                        this.printOrder(msg.newOrder)
+                    } else if (msg.newOrder) {
+                        this.orderStore.push(msg.newOrder)
+                    }
+                })
+            })
+
+            this.ws.on('disconnect', () => {
+                console.log('[WEBSOCKET] disconnected')
+            })
+        },
 
         reJoinKitchen() {
             this.ws.emit('join_cooking', this.kitchen)
@@ -212,7 +225,9 @@ export default defineComponent({
             this.printer.setTextSize(26)
             this.printer.printText('Menu:')
             for (let i = 0; i < item.orderItems.length; i++) {
-                this.printer.printText(`${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`)
+                this.printer.printText(
+                    `${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`
+                )
             }
             this.printer.printText('=========================')
             this.printer.setTextSize(24)

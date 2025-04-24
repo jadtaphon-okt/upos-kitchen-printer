@@ -2,10 +2,8 @@
     <ion-page>
         <ion-header>
             <div class="appbar">
-                <div
-                    style="display: flex; align-items: center; gap: 5px;"
-                    @click="$router.back()">
-                    <ion-icon style="margin-top: 2px;" :icon="arrowBackOutline"></ion-icon>
+                <div style="display: flex; align-items: center; gap: 5px" @click="$router.back()">
+                    <ion-icon style="margin-top: 2px" :icon="arrowBackOutline"></ion-icon>
                     <span class="appbar-title">{{ kitchanName }}</span>
                 </div>
                 <div class="right-side">
@@ -45,7 +43,9 @@
                 </div>
                 <div class="order-status">
                     <div>Status Food: {{ getStatusOrder(order.orderStatus) }}</div>
-                    <div>Print Status: {{ order.isPrint === 'PRINT'? 'Not Printed' : 'Printed' }}</div>
+                    <div>
+                        Print Status: {{ order.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}
+                    </div>
                 </div>
                 <div class="order-go-detail" @click="openOrderDetail(order)">
                     <ion-icon :icon="arrowForwardCircleOutline" size="large"></ion-icon>
@@ -173,7 +173,7 @@ export default defineComponent({
     },
 
     methods: {
-        getStatusOrder (status) {
+        getStatusOrder(status) {
             return getStatusOrderDisplay(status)
         },
         async initializePrinter() {
@@ -213,7 +213,9 @@ export default defineComponent({
             this.printer.setTextSize(26)
             this.printer.printText('Menu:')
             for (let i = 0; i < item.orderItems.length; i++) {
-                this.printer.printText(`${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`)
+                this.printer.printText(
+                    `${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`
+                )
             }
             this.printer.printText('=========================')
             this.printer.setTextSize(24)
