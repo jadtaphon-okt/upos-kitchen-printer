@@ -54,7 +54,7 @@
                     <div>Menu:</div>
                     <ul>
                         <li v-for="(item, index) in selectedOrder.orderItems" :key="index">
-                            {{ item.name }}
+                            {{ item.name }} X {{ item.amount }}
                         </li>
                     </ul>
                 </div>
