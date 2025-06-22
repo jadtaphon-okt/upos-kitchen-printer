@@ -14,10 +14,10 @@
                         <ion-icon :icon="timeOutline" size="small"></ion-icon>
                         ประวัติ
                     </div>
-                    <!-- <div class="box" @click="openTestMenu" style="background-color: ghostwhite">
-                        <ion-icon :icon="printOutline" size="small"></ion-icon>
-                        ทดสอบ
-                    </div> -->
+                    <div class="box" @click="reConnectWs" style="background-color: ghostwhite">
+                        <ion-icon :icon="syncOutline" size="small"></ion-icon>
+                        refrash
+                    </div>
                 </div>
             </div>
         </ion-header>
@@ -90,6 +90,7 @@ import {
 } from '@ionic/vue'
 import {
     printOutline,
+    syncOutline,
     print,
     barcode,
     qrCode,
@@ -131,6 +132,7 @@ export default defineComponent({
             caretBackOutline,
             print,
             timeOutline,
+            syncOutline,
             dayjs
         }
     },
@@ -199,6 +201,7 @@ export default defineComponent({
                         this.orderStore = msg.orderList
                     }
                     if (this.isAutoPrint && msg.newOrder) {
+                        // console.log('[WEBSOCKET] New order received:', msg.newOrder)
                         this.printOrder(msg.newOrder)
                     } else if (msg.newOrder) {
                         this.orderStore.push(msg.newOrder)
@@ -404,6 +407,27 @@ export default defineComponent({
 
         openHistory() {
             this.$router.push('/history')
+        },
+
+        async reConnectWs() {
+            const loading = await loadingController.create({
+                message: 'Reconnecting...',
+                spinner: 'crescent',
+                mode: 'ios'
+            })
+            await loading.present()
+
+            if (this.ws) {
+                this.ws.disconnect()
+            }
+
+            try {
+                await this.handshakeWebShocket()
+            } finally {
+                setTimeout(() => {
+                    loading.dismiss()
+                }, 1000)
+            }
         }
     }
 })
