@@ -84,22 +84,8 @@ export default defineComponent({
                 this.errorToast('Invalid API Endpoint')
                 return
             }
-            await this.getToken()
 
             location.href = '/'
-        },
-
-        async getToken() {
-            const payload = {
-                username: 'kitchen',
-                password: '62U13W(Y^Ke^'
-            }
-            try {
-                const res = await axios.post('https://' + this.url + '/api/auth/sign-in', payload)
-                localStorage.setItem('token', res.data.accessToken)
-            } catch (error) {
-                throw new Error('Failed to fetch token')
-            }
         },
 
         async getKitchenList() {
@@ -149,7 +135,7 @@ export default defineComponent({
     }
 })
 </script>
-<style scoped>
+<style lang="scss" scoped>
 .body-container {
     padding: 30px;
     display: flex;
@@ -206,6 +192,7 @@ export default defineComponent({
 }
 .api-form {
     display: flex;
+    align-items: flex-end;
     justify-content: center;
     gap: 20px;
     width: 100%;

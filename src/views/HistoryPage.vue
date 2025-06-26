@@ -159,6 +159,10 @@ export default defineComponent({
     },
 
     async mounted() {
+        const isAuth = localStorage.getItem('token')
+        if (!isAuth) {
+            return this.$router.push({ name: 'LoginPage' })
+        }
         setTimeout(() => {
             const el = document.querySelector('.datepicker')
             if (el) {
@@ -168,7 +172,7 @@ export default defineComponent({
 
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.printer = new Printer()
-        this.initializePrinter()
+        // this.initializePrinter()
         await this.getOrderList()
     },
 

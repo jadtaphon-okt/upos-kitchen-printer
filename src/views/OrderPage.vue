@@ -16,7 +16,10 @@
                     </div>
                     <div class="box" @click="reConnectWs" style="background-color: ghostwhite">
                         <ion-icon :icon="syncOutline" size="small"></ion-icon>
-                        refrash
+                        Refrash
+                    </div>
+                    <div class="box" @click="onLogout" style="background-color: ghostwhite">
+                        <ion-icon :icon="logOut" size="small"></ion-icon>
                     </div>
                 </div>
             </div>
@@ -85,12 +88,12 @@ import {
     IonButtons,
     IonProgressBar,
     actionSheetController,
-    loadingController,
-    alertController
+    loadingController
 } from '@ionic/vue'
 import {
     printOutline,
     syncOutline,
+    logOut,
     print,
     barcode,
     qrCode,
@@ -133,7 +136,8 @@ export default defineComponent({
             print,
             timeOutline,
             syncOutline,
-            dayjs
+            dayjs,
+            logOut
         }
     },
     data() {
@@ -155,8 +159,12 @@ export default defineComponent({
     },
 
     async mounted() {
+        const isAuth = localStorage.getItem('token')
+        if (!isAuth) {
+            return this.$router.push({ name: 'LoginPage' })
+        }
         this.printer = new Printer()
-        await this.initializePrinter()
+        // await this.initializePrinter()
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.isAutoPrint = localStorage.getItem('autoPrint') === 'true'
         this.kitchen = {
@@ -428,6 +436,12 @@ export default defineComponent({
                     loading.dismiss()
                 }, 1000)
             }
+        },
+
+        onLogout() {
+            localStorage.removeItem('token')
+            this.$router.push({ name: 'LoginPage' })
+            this.ws.disconnect()
         }
     }
 })

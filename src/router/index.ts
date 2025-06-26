@@ -4,6 +4,11 @@ import { RouteRecordRaw } from 'vue-router'
 const routes: Array<RouteRecordRaw> = [
     {
         path: '/',
+        name: 'LoginPage',
+        component: () => import('@/views/LoginPage.vue')
+    },
+    {
+        path: '/order',
         name: 'OrderPage',
         component: () => import('@/views/OrderPage.vue')
     },

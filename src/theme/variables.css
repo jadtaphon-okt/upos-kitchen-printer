@@ -1,5 +1,12 @@
 /* For information on how to create your own theme, please see:
 http://ionicframework.com/docs/theming/ */
+
+@import url('https://fonts.googleapis.com/css2?family=Kanit&display=swap');
+
+* {
+    font-family: 'Kanit', sans-serif !important;
+}
+
 .appbar {
     width: 100%;
     height: 50px;
@@ -21,6 +28,8 @@ http://ionicframework.com/docs/theming/ */
 
 .box {
     display: flex;
+    align-items: center;
+    height: 30px;
     gap: 5px;
     padding: 5px;
     color: #000;
