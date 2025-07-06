@@ -227,22 +227,29 @@ export default defineComponent({
         },
 
         printOrder(item) {
+            this.printer.setAlignment(1)
+            this.printer.setTextWidth(576)
             this.printer.setTextSize(38)
-            this.printer.setAlignment(2)
             this.printer.printText(this.kitchanName)
+            this.printer.printText('Order No: ' + item.orderNo.slice(-3))
             this.printer.setTextSize(28)
-            this.printer.printText('Order No: ' + item.orderNo)
-            this.printer.printText('Order Date: ' + dayjs(item.orderDate).format('DD/MM/YYYY'))
-            this.printer.setTextSize(26)
-            this.printer.printText('Menu:')
+            this.printer.printText(
+                'Order Date: ' + dayjs(item.orderDate).format('DD/MM/YYYY HH:mm')
+            )
+            this.printer.printText('Receipt No: ' + item.orderNo)
+            this.printer.setAlignment(0)
+            this.printer.printColumnsText(['Menu', 'Qty'], [2, 1], [0, 2], [28, 28])
             for (let i = 0; i < item.orderItems.length; i++) {
-                this.printer.printText(
-                    `${i + 1}. ${item.orderItems[i].name} : จำนวน ${item.orderItems[i].amount}`
+                this.printer.printColumnsText(
+                    [item.orderItems[i].name, item.orderItems[i].amount.toString()],
+                    [2, 1],
+                    [0, 2],
+                    [28, 28]
                 )
             }
-            this.printer.printText('=========================')
-            this.printer.setTextSize(24)
-            this.printer.printText(`Note: ${item.orderNote}`)
+            this.printer.setTextSize(26)
+            this.printer.printText('==========================')
+            this.printer.printColumnsText(['Note:', item.orderNote], [2, 1], [0, 2], [26, 24])
             this.printer.partialCut()
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
