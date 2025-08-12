@@ -164,7 +164,7 @@ export default defineComponent({
             return this.$router.push({ name: 'LoginPage' })
         }
         this.printer = new Printer()
-        await this.initializePrinter()
+        // await this.initializePrinter()
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.isAutoPrint = localStorage.getItem('autoPrint') === 'true'
         this.kitchen = {
