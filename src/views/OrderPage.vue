@@ -249,7 +249,7 @@ export default defineComponent({
             }
             this.printer.setTextSize(26)
             this.printer.printText('==========================')
-            this.printer.printColumnsText(['Note:', item.orderNote], [2, 1], [0, 2], [26, 24])
+            this.printer.printColumnsText(['Note:', item.orderNote], [2, 1], [0, 0], [26, 24])
             this.printer.partialCut()
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
