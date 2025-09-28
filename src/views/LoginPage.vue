@@ -45,27 +45,9 @@
 <script>
 import { defineComponent } from 'vue'
 import { settings, eye, eyeOff } from 'ionicons/icons'
-import {
-    IonIcon,
-    IonPage,
-    IonHeader,
-    IonContent,
-    IonSpinner,
-    IonButton,
-    toastController
-} from '@ionic/vue'
 import axios from 'axios'
 export default defineComponent({
     name: 'LoginPage',
-
-    components: {
-        IonIcon,
-        IonPage,
-        IonHeader,
-        IonContent,
-        IonSpinner,
-        IonButton
-    },
 
     data() {
         return {
@@ -82,7 +64,6 @@ export default defineComponent({
     },
 
     mounted() {
-        // Clear any previous token
         localStorage.removeItem('token')
     },
 
@@ -91,42 +72,16 @@ export default defineComponent({
             this.$router.push({ name: 'ConfigPage' })
         },
 
-        successToast(message) {
-            toastController
-                .create({
-                    message: message,
-                    duration: 2000,
-                    position: 'top',
-                    color: 'success'
-                })
-                .then(toast => {
-                    toast.present()
-                })
-        },
-
-        errorToast(message) {
-            toastController
-                .create({
-                    message: message,
-                    duration: 2000,
-                    position: 'top',
-                    color: 'danger'
-                })
-                .then(toast => {
-                    toast.present()
-                })
-        },
-
         async onLogin() {
             this.loading = true
             if (!this.form.username || !this.form.password) {
-                this.errorToast('Please enter username and password')
+                this.$toast.error('Please enter username and password')
                 this.loading = false
                 return
             }
             const api = localStorage.getItem('apiUrl')
             if (!api) {
-                this.errorToast('Please set API URL in settings')
+                this.$toast.error('Please set API URL in settings')
                 this.loading = false
                 return
             }
@@ -138,7 +93,7 @@ export default defineComponent({
                 localStorage.setItem('token', res.data.accessToken)
                 this.$router.push({ name: 'OrderPage' })
             } catch (error) {
-                this.errorToast(error.response.data.message)
+                this.$toast.error(error.response.data.message)
                 this.loading = false
                 return
             }

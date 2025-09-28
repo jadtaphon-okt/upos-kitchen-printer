@@ -24,6 +24,8 @@ http://ionicframework.com/docs/theming/ */
     text-overflow: ellipsis;
     max-width: 200px;
     font-size: 28px;
+    color: #fff;
+    text-decoration: none;
 }
 
 .box {
@@ -37,6 +39,7 @@ http://ionicframework.com/docs/theming/ */
     border-radius: 5px;
     margin-left: 5px;
     cursor: pointer;
+    text-decoration: none;
 }
 .box:active {
     background-color: #515151;

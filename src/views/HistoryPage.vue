@@ -3,7 +3,11 @@
         <ion-header>
             <div class="appbar">
                 <div style="display: flex; align-items: center; gap: 5px" @click="$router.back()">
-                    <ion-icon style="margin-top: 2px" :icon="arrowBackOutline"></ion-icon>
+                    <ion-icon
+                        style="margin-top: 4px"
+                        size="large"
+                        :icon="arrowBackOutline"
+                    ></ion-icon>
                     <span class="appbar-title">{{ kitchanName }}</span>
                 </div>
                 <div class="right-side">
@@ -78,55 +82,30 @@
         <ion-modal :keep-contents-mounted="true">
             <ion-datetime id="datetime" v-model="form.date"></ion-datetime>
         </ion-modal>
+
+        <!-- Printer Status Indicator -->
+        <div class="printer-status">
+            <div class="status-dot" :class="printerStatusClass"></div>
+            <span class="status-text">{{ printerStatusText }}</span>
+        </div>
     </ion-page>
 </template>
 <script>
 import dayjs from 'dayjs'
+import { loadingController } from '@ionic/vue'
 import {
-    IonContent,
-    IonHeader,
-    IonPage,
-    IonTitle,
-    IonToolbar,
-    IonButton,
-    IonSpinner,
-    IonToggle,
-    IonIcon,
-    IonFooter,
-    IonButtons,
-    IonProgressBar,
-    IonDatetime,
-    IonDatetimeButton,
-    loadingController,
-    IonModal
-} from '@ionic/vue'
-import { arrowForwardCircleOutline, printOutline, arrowBackOutline } from 'ionicons/icons'
+    arrowForwardCircleOutline,
+    printOutline,
+    arrowBackOutline,
+    caretBackOutline
+} from 'ionicons/icons'
 import { defineComponent } from 'vue'
 import axios from 'axios'
 import Printer from '../services/imin-printer.esm.browser'
-import { Preferences } from '@capacitor/preferences'
 import { getStatusOrderDisplay } from '@/plugins/utils'
 
 export default defineComponent({
     name: 'HistoryPage',
-
-    components: {
-        IonContent,
-        IonHeader,
-        IonPage,
-        IonTitle,
-        IonToolbar,
-        IonButton,
-        IonSpinner,
-        IonToggle,
-        IonIcon,
-        IonFooter,
-        IonButtons,
-        IonProgressBar,
-        IonDatetime,
-        IonDatetimeButton,
-        IonModal
-    },
 
     data() {
         return {
@@ -147,8 +126,10 @@ export default defineComponent({
             arrowForwardCircleOutline,
             printOutline,
             arrowBackOutline,
+            caretBackOutline,
             selectedOrder: null,
-            orderList: []
+            orderList: [],
+            printerStatus: 'disconnected'
         }
     },
 
@@ -158,11 +139,38 @@ export default defineComponent({
         }
     },
 
-    async mounted() {
-        const isAuth = localStorage.getItem('token')
-        if (!isAuth) {
-            return this.$router.push({ name: 'LoginPage' })
+    computed: {
+        printerStatusText() {
+            switch (this.printerStatus) {
+                case 'connected':
+                    return 'Printer Ready'
+                case 'error':
+                    return 'Printer Error'
+                case 'disconnected':
+                    return 'Printer Offline'
+                case 'connecting':
+                    return 'Connecting...'
+                default:
+                    return 'Unknown Status'
+            }
+        },
+        printerStatusClass() {
+            switch (this.printerStatus) {
+                case 'connected':
+                    return 'status-connected'
+                case 'error':
+                    return 'status-error'
+                case 'disconnected':
+                    return 'status-disconnected'
+                case 'connecting':
+                    return 'status-connecting'
+                default:
+                    return 'status-disconnected'
+            }
         }
+    },
+
+    async mounted() {
         setTimeout(() => {
             const el = document.querySelector('.datepicker')
             if (el) {
@@ -181,6 +189,7 @@ export default defineComponent({
             return getStatusOrderDisplay(status)
         },
         async initializePrinter() {
+            this.printerStatus = 'connecting'
             console.log('[PRINTER] Initializing printer...')
             const loading = await loadingController.create({
                 message: 'Connecting to printer...',
@@ -193,12 +202,16 @@ export default defineComponent({
                 console.log('[PRINTER] Connected:', this.isConnect)
                 if (this.isConnect) {
                     this.printer.initPrinter()
+                    this.printerStatus = 'connected'
                     console.log('[PRINTER] Initialized')
                     this.getPrinterStatus(1)
                     console.log('[PRINTER] Status checked')
+                } else {
+                    this.printerStatus = 'disconnected'
                 }
             } catch (error) {
                 console.error('[PRINTER] Error initializing:', error)
+                this.printerStatus = 'error'
                 loading.dismiss()
             } finally {
                 setTimeout(() => {
@@ -227,10 +240,14 @@ export default defineComponent({
                     [0, 2],
                     [28, 28]
                 )
+                if (item.orderItems[i].note) {
+                    this.printer.printText(item.orderItems[i].note)
+                }
             }
             this.printer.setTextSize(26)
             this.printer.printText('==========================')
-            this.printer.printText('Note: ' + item.orderNote)
+            this.printer.setTextSize(28)
+            this.printer.printText(`Note: ${item.orderNote || '-'}`)
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
         },
@@ -281,6 +298,32 @@ export default defineComponent({
                 this.showDetail = false
                 this.getOrderList()
             }
+        },
+
+        async getPrinterStatus(type) {
+            const _this = this
+            let reconnectNum = 0
+            if (type) {
+                const checkStatus = setInterval(async () => {
+                    const status = await this.printer.getPrinterStatus()
+                    if (status.value === 0) {
+                        this.printerStatus = 'connected'
+                        clearInterval(checkStatus)
+                    } else if (status.value < 0) {
+                        this.printerStatus = 'error'
+                        reconnectNum++
+                        if (reconnectNum > 3) {
+                            reconnectNum = 0
+                            this.printer.initPrinter()
+                        }
+                    } else {
+                        this.printerStatus = 'error'
+                    }
+                }, 2000)
+            } else {
+                const status = await this.printer.getPrinterStatus()
+                console.log('status', status)
+            }
         }
     }
 })
@@ -313,5 +356,78 @@ export default defineComponent({
 }
 .btn-search:active {
     background-color: #e86800;
+}
+
+.printer-status {
+    position: fixed;
+    bottom: 5px;
+    left: 30px;
+    display: flex;
+    align-items: center;
+    border-radius: 20px;
+    z-index: 1000;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    margin-top: 1.5px;
+}
+
+.status-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+}
+
+.status-connected {
+    background-color: #22c55e;
+    animation: pulse-green 2s infinite;
+}
+
+.status-error {
+    background-color: #ef4444;
+    animation: pulse-red 2s infinite;
+}
+
+.status-disconnected {
+    background-color: #6b7280;
+}
+
+.status-connecting {
+    background-color: #f59e0b;
+    animation: pulse-yellow 1s infinite;
+}
+
+@keyframes pulse-green {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes pulse-red {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes pulse-yellow {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 </style>

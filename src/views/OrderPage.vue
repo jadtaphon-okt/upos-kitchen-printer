@@ -2,7 +2,7 @@
     <ion-page>
         <ion-header>
             <div class="appbar">
-                <div class="appbar-title" @click="goToConfig">{{ kitchanName }}</div>
+                <RouterLink class="appbar-title" to="/config">{{ kitchanName }}</RouterLink>
 
                 <div class="toggle">
                     <ion-toggle color="success" mode="md" v-model="isAutoPrint"
@@ -10,10 +10,10 @@
                     >
                 </div>
                 <div class="action-left">
-                    <div class="box" @click="openHistory">
+                    <RouterLink class="box" to="/history">
                         <ion-icon :icon="timeOutline" size="small"></ion-icon>
                         ประวัติ
-                    </div>
+                    </RouterLink>
                     <div class="box" @click="reConnectWs" style="background-color: ghostwhite">
                         <ion-icon :icon="syncOutline" size="small"></ion-icon>
                         Refrash
@@ -70,35 +70,21 @@
                 <div class="btn-print" @click="printOrder(selectedOrder)">Print Order</div>
             </div>
         </ion-content>
+
+        <!-- Printer Status Indicator -->
+        <div class="printer-status">
+            <div class="status-dot" :class="printerStatusClass"></div>
+            <span class="status-text">{{ printerStatusText }}</span>
+        </div>
     </ion-page>
 </template>
 
 <script>
 import {
-    IonContent,
-    IonHeader,
-    IonPage,
-    IonTitle,
-    IonToolbar,
-    IonButton,
-    IonSpinner,
-    IonToggle,
-    IonIcon,
-    IonFooter,
-    IonButtons,
-    IonProgressBar,
-    actionSheetController,
-    loadingController
-} from '@ionic/vue'
-import {
     printOutline,
     syncOutline,
     logOut,
     print,
-    barcode,
-    qrCode,
-    text,
-    iceCream,
     timeOutline,
     settings,
     arrowForwardCircleOutline,
@@ -113,20 +99,6 @@ import { getStatusOrderDisplay } from '@/plugins/utils'
 export default defineComponent({
     name: 'OrderPage',
 
-    components: {
-        IonContent,
-        IonHeader,
-        IonPage,
-        IonTitle,
-        IonToolbar,
-        IonButton,
-        IonSpinner,
-        IonFooter,
-        IonButtons,
-        IonProgressBar,
-        IonIcon,
-        IonToggle
-    },
     setup() {
         return {
             printOutline,
@@ -154,15 +126,43 @@ export default defineComponent({
             isAutoPrint: false,
             selectedOrder: null,
             kitchen: {},
-            orderStore: []
+            orderStore: [],
+            printerStatus: 'disconnected'
+        }
+    },
+
+    computed: {
+        printerStatusText() {
+            switch (this.printerStatus) {
+                case 'connected':
+                    return 'Printer Ready'
+                case 'error':
+                    return 'Printer Error'
+                case 'disconnected':
+                    return 'Printer Offline'
+                case 'connecting':
+                    return 'Connecting...'
+                default:
+                    return 'Unknown Status'
+            }
+        },
+        printerStatusClass() {
+            switch (this.printerStatus) {
+                case 'connected':
+                    return 'status-connected'
+                case 'error':
+                    return 'status-error'
+                case 'disconnected':
+                    return 'status-disconnected'
+                case 'connecting':
+                    return 'status-connecting'
+                default:
+                    return 'status-disconnected'
+            }
         }
     },
 
     async mounted() {
-        const isAuth = localStorage.getItem('token')
-        if (!isAuth) {
-            return this.$router.push({ name: 'LoginPage' })
-        }
         this.printer = new Printer()
         await this.initializePrinter()
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
@@ -193,8 +193,25 @@ export default defineComponent({
     },
 
     methods: {
-        getStatusOrder(status) {
-            return getStatusOrderDisplay(status)
+        async initializePrinter() {
+            this.printerStatus = 'connecting'
+            const loading = await this.$toast.loading('Connecting to printer...')
+            try {
+                this.isConnect = await this.printer.connect()
+                if (this.isConnect) {
+                    this.printer.initPrinter()
+                    this.printerStatus = 'connected'
+                    this.getPrinterStatus(1)
+                } else {
+                    this.printerStatus = 'disconnected'
+                }
+            } catch (error) {
+                console.error('[PRINTER] Error initializing:', error)
+                this.printerStatus = 'error'
+                loading.dismiss()
+            } finally {
+                loading.dismiss()
+            }
         },
 
         async handshakeWebShocket() {
@@ -222,10 +239,6 @@ export default defineComponent({
             })
         },
 
-        reJoinKitchen() {
-            this.ws.emit('join_cooking', this.kitchen)
-        },
-
         printOrder(item) {
             this.printer.setAlignment(1)
             this.printer.setTextWidth(576)
@@ -246,10 +259,14 @@ export default defineComponent({
                     [0, 2],
                     [28, 28]
                 )
+                if (item.orderItems[i].note) {
+                    this.printer.printText(item.orderItems[i].note)
+                }
             }
             this.printer.setTextSize(26)
             this.printer.printText('==========================')
-            this.printer.printText('Note: ' + item.orderNote)
+            this.printer.setTextSize(28)
+            this.printer.printText(`Note: ${item.orderNote || '-'}`)
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
             this.orderStore = this.orderStore.filter(order => order.id !== item.id)
@@ -270,8 +287,8 @@ export default defineComponent({
             }
         },
 
-        goToConfig() {
-            this.$router.push('/config')
+        getStatusOrder(status) {
+            return getStatusOrderDisplay(status)
         },
 
         openOrderDetail(item) {
@@ -279,31 +296,19 @@ export default defineComponent({
             this.showDetail = true
         },
 
-        async initializePrinter() {
-            console.log('[PRINTER] Initializing...')
-            const loading = await loadingController.create({
-                message: 'Connecting to printer...',
-                spinner: 'crescent',
-                mode: 'ios'
-            })
-            loading.present()
-            try {
-                this.isConnect = await this.printer.connect()
-                console.log('[PRINTER] Connected:', this.isConnect)
-                if (this.isConnect) {
-                    this.printer.initPrinter()
-                    console.log('[PRINTER] Initialized')
-                    this.getPrinterStatus(1)
-                    console.log('[PRINTER] Status checked')
-                }
-            } catch (error) {
-                console.error('[PRINTER] Error initializing:', error)
-                loading.dismiss()
-            } finally {
-                setTimeout(() => {
-                    loading.dismiss()
-                }, 2000)
+        async reConnectWs() {
+            const loading = await this.$toast.loading('Reconnecting...')
+            if (this.ws) {
+                this.ws.disconnect()
             }
+            await this.handshakeWebShocket()
+            await loading.dismiss()
+        },
+
+        onLogout() {
+            localStorage.clear()
+            this.$router.push({ name: 'LoginPage' })
+            this.ws.disconnect()
         },
 
         async getPrinterStatus(type) {
@@ -314,17 +319,20 @@ export default defineComponent({
                     const status = await this.printer.getPrinterStatus()
                     if (status.value === 0) {
                         this.loadingText = 'Printing status is normal.'
+                        this.printerStatus = 'connected'
                         setTimeout(function () {
                             _this.loading = false
                         }, 2000)
                         clearInterval(checkStatus)
                     } else if (status.value < 0) {
+                        this.printerStatus = 'error'
                         reconnectNum++
                         if (reconnectNum > 3) {
                             reconnectNum = 0
                             this.printer.initPrinter()
                         }
                     } else {
+                        this.printerStatus = 'error'
                         this.loadingText =
                             'Error, printing status is abnormal, status value:' +
                             JSON.stringify(status.value) +
@@ -335,119 +343,6 @@ export default defineComponent({
                 const status = await this.printer.getPrinterStatus()
                 console.log('status', status)
             }
-        },
-
-        async openTestMenu() {
-            const actionSheet = await actionSheetController.create({
-                mode: 'ios',
-                buttons: [
-                    {
-                        text: 'Print Text',
-                        icon: text,
-                        handler: () => {
-                            this.testPrintText()
-                        }
-                    },
-                    {
-                        text: 'Print QR Code',
-                        icon: qrCode,
-                        handler: () => {
-                            this.testPrintQR()
-                        }
-                    },
-                    {
-                        text: 'Print Barcode',
-                        icon: barcode,
-                        handler: () => {
-                            this.testPrintBarcode()
-                        }
-                    },
-                    {
-                        text: 'Print Order',
-                        icon: iceCream,
-                        handler: () => {
-                            this.testPrintOrder()
-                        }
-                    },
-                    {
-                        text: 'Cancel',
-                        role: 'cancel'
-                    }
-                ]
-            })
-
-            await actionSheet.present()
-        },
-
-        testPrintText() {
-            this.printer.printText('test print centent')
-            this.printer.printAndFeedPaper(50)
-        },
-
-        testPrintBarcode() {
-            this.printer.printBarCode('123456789012', 2, 70, 3, 1)
-            this.printer.printAndFeedPaper(50)
-        },
-
-        async testPrintOrder() {
-            const menuList = [
-                { name: 'Menu Item 1' },
-                { name: 'Menu Item 2' },
-                { name: 'Menu Item 3' }
-            ]
-            setTimeout(() => {
-                this.printer.setTextSize(28)
-                this.printer.setAlignment(2)
-                this.printer.printText(this.kitchanName)
-                this.printer.printText('Order No: 123456')
-                this.printer.printText('Order Date: 2023-10-01')
-                this.printer.setTextSize(26)
-                this.printer.printText('Menu:')
-                for (let i = 0; i < menuList.length; i++) {
-                    this.printer.printText(menuList[i].name)
-                }
-                this.printer.printText('=========================')
-                this.printer.setTextSize(24)
-                this.printer.printText('Note: Please serve the order as soon as possible.')
-                this.printer.partialCut()
-                this.printer.printAndFeedPaper(50)
-            }, 1000)
-        },
-
-        testPrintQR() {
-            this.printer.printQrCode('https://www.google.com')
-            this.printer.printAndFeedPaper(50)
-        },
-
-        openHistory() {
-            this.$router.push('/history')
-        },
-
-        async reConnectWs() {
-            const loading = await loadingController.create({
-                message: 'Reconnecting...',
-                spinner: 'crescent',
-                mode: 'ios'
-            })
-            await loading.present()
-
-            if (this.ws) {
-                this.ws.disconnect()
-            }
-
-            try {
-                await this.handshakeWebShocket()
-            } finally {
-                setTimeout(() => {
-                    loading.dismiss()
-                }, 1000)
-            }
-        },
-
-        onLogout() {
-            localStorage.removeItem('token')
-            this.$router.push({ name: 'LoginPage' })
-            this.ws.disconnect()
         }
     }
 })
@@ -458,5 +353,78 @@ export default defineComponent({
     justify-content: space-between;
     align-items: center;
     margin-left: 10px;
+}
+
+.printer-status {
+    position: fixed;
+    bottom: 5px;
+    left: 30px;
+    display: flex;
+    align-items: center;
+    border-radius: 20px;
+    z-index: 1000;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    margin-top: 1.5px;
+}
+
+.status-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+}
+
+.status-connected {
+    background-color: #22c55e;
+    animation: pulse-green 2s infinite;
+}
+
+.status-error {
+    background-color: #ef4444;
+    animation: pulse-red 2s infinite;
+}
+
+.status-disconnected {
+    background-color: #6b7280;
+}
+
+.status-connecting {
+    background-color: #f59e0b;
+    animation: pulse-yellow 1s infinite;
+}
+
+@keyframes pulse-green {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes pulse-red {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes pulse-yellow {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 </style>

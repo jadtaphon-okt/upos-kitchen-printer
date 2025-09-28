@@ -36,27 +36,16 @@
 </template>
 <script>
 import { defineComponent } from 'vue'
-import { IonPage, IonContent, IonSelect, IonSelectOption, toastController } from '@ionic/vue'
 import axios from 'axios'
 export default defineComponent({
-    components: {
-        IonPage,
-        IonContent,
-        IonSelect,
-        IonSelectOption
-    },
+    name: 'ConfigPage',
 
     data() {
         return {
-            url: '',
+            url: localStorage.getItem('apiUrl') || '',
             kitchen: '',
             kitchens: []
         }
-    },
-
-    mounted() {
-        this.url = localStorage.getItem('apiUrl') || ''
-        this.kitchen = localStorage.getItem('kitchenId') || ''
     },
 
     methods: {
@@ -66,11 +55,11 @@ export default defineComponent({
 
         async onConfirm() {
             if (!this.url) {
-                this.errorToast('Please enter an API Endpoint')
+                this.$toast.error('Please enter an API Endpoint')
                 return
             }
             if (!this.kitchen) {
-                this.errorToast('Please select a kitchen')
+                this.$toast.error('Please select a kitchen')
                 return
             }
 
@@ -81,10 +70,13 @@ export default defineComponent({
             try {
                 await axios.get('https://' + this.url)
             } catch (error) {
-                this.errorToast('Invalid API Endpoint')
+                this.$toast.error('Invalid API Endpoint')
                 return
             }
 
+            const loading = await this.$toast.loading('Saving settings...')
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            await loading.dismiss()
             location.href = '/'
         },
 
@@ -92,44 +84,25 @@ export default defineComponent({
             try {
                 const res = await axios.get('https://' + this.url + '/api/cooking')
                 this.kitchens = res.data
+                this.kitchen = this.kitchens.find(
+                    k => k.id === Number(localStorage.getItem('kitchenId'))
+                )
             } catch (error) {
-                this.errorToast('Failed to fetch kitchen list')
+                this.$toast.error('Failed to fetch kitchen list')
             }
-        },
-
-        successToast() {
-            toastController
-                .create({
-                    message: 'Connection Successful',
-                    duration: 2000,
-                    color: 'success',
-                    position: 'top'
-                })
-                .then(toast => toast.present())
-        },
-
-        errorToast(msg) {
-            toastController
-                .create({
-                    message: msg,
-                    duration: 2000,
-                    color: 'danger',
-                    position: 'top'
-                })
-                .then(toast => toast.present())
         },
 
         async testConnection() {
             try {
                 const { data } = await axios.get('https://' + this.url)
                 if (data.status && data.status === 'ok') {
-                    this.successToast()
+                    this.$toast.success('Connection Successful')
                     this.getKitchenList()
                 } else {
-                    this.errorToast('Connection Failed')
+                    this.$toast.error('Connection Failed')
                 }
             } catch (error) {
-                this.errorToast(error.message)
+                this.$toast.error(error.message)
             }
         }
     }
