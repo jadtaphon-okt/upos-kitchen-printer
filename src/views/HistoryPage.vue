@@ -11,13 +11,10 @@
                     <span class="appbar-title">{{ kitchanName }}</span>
                 </div>
                 <div class="right-side">
-                    <ion-datetime-button class="datepicker" datetime="datetime">
-                    </ion-datetime-button>
-                    <select v-model="form.status" class="no-input" style="color: black">
-                        <option value="ALL">ทั้งหมด</option>
-                        <option value="PRINTED">พิมพ์</option>
-                        <option value="PRINT">ยังไม่พิมพ์</option>
-                    </select>
+                    <IonDatepicker v-model="form.date" />
+                    <button class="no-input status-button" @click="openStatusActionSheet">
+                        {{ getStatusLabel(form.status) }}
+                    </button>
                     <input
                         class="no-input"
                         type="text"
@@ -30,29 +27,59 @@
         </ion-header>
 
         <ion-content v-if="!showDetail" :fullscreen="true" class="ion-padding bg-style">
+            <div v-if="isLoadingOrders" class="loading-container">
+                <ion-spinner name="crescent"></ion-spinner>
+                <span>Loading orders...</span>
+            </div>
+            <div v-else-if="orderList.length === 0" class="empty-state">
+                <ion-icon :icon="layersOutline"></ion-icon>
+                <span>No orders available</span>
+            </div>
             <div
+                v-else
                 class="order-item"
-                :style="{ backgroundColor: order.isPrint === 'PRINT' ? '#FFCDD2' : '#B9F6CA' }"
+                :class="[getCardStyle(order.isPrint), { 'new-item-animation': order.isNewItem }]"
                 v-for="(order, index) in orderList"
-                :key="index"
+                :key="order.id || index"
+                @click="openOrderDetail(order)"
             >
                 <div class="order-header">
-                    <div>Order No: {{ order.orderNo }}</div>
-                    <div>Order Date: {{ dayjs(order.orderDate).format('DD/MM/YYYY') }}</div>
+                    <div>
+                        Order No: <strong>{{ order.orderNo }}</strong>
+                    </div>
+                    <div>
+                        Order Date:
+                        <strong>{{ dayjs(order.orderDate).format('DD/MM/YYYY') }}</strong>
+                    </div>
                     <ion-icon
                         :icon="printOutline"
                         size="large"
                         @click="printOrder(order)"
                     ></ion-icon>
                 </div>
-                <div class="order-status">
-                    <div>Status Food: {{ getStatusOrder(order.orderStatus) }}</div>
+                <div class="order-menu">
+                    <div class="text-ellipsis" style="width: 90%">
+                        เลขโต๊ะ/ห้อง: <strong>{{ order.roomNo }}</strong> | ลูกค้า:
+                        <strong>{{ order.customerName }}</strong>
+                    </div>
                     <div>
-                        Print Status: {{ order.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}
+                        เวลาสั่ง: <strong>{{ dayjs(order.orderDate).format('HH:mm') }}</strong>
+                    </div>
+                    <div class="text-ellipsis">
+                        เมนู: {{ order.orderItems.map(menu => menu.name).join(', ') }}
                     </div>
                 </div>
-                <div class="order-go-detail" @click="openOrderDetail(order)">
-                    <ion-icon :icon="arrowForwardCircleOutline" size="large"></ion-icon>
+                <div class="order-status">
+                    <div>
+                        Print Status: <br />
+                        <strong>{{ order.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}</strong>
+                    </div>
+                </div>
+                <div class="order-status-detail">
+                    <div>สถานะปัจจุบัน</div>
+                    <div class="badge" :class="getBadgeClass(order.receivedStatus)">
+                        {{ formatStatusToPascalCase(order.receivedStatus) }}
+                    </div>
                 </div>
             </div>
         </ion-content>
@@ -79,12 +106,9 @@
                 <div class="btn-print" @click="printOrder(selectedOrder)">Print Order</div>
             </div>
         </ion-content>
-        <ion-modal :keep-contents-mounted="true">
-            <ion-datetime id="datetime" v-model="form.date"></ion-datetime>
-        </ion-modal>
 
         <!-- Printer Status Indicator -->
-        <div class="printer-status">
+        <div class="printer-status" v-if="!showDetail">
             <div class="status-dot" :class="printerStatusClass"></div>
             <span class="status-text">{{ printerStatusText }}</span>
         </div>
@@ -92,20 +116,25 @@
 </template>
 <script>
 import dayjs from 'dayjs'
-import { loadingController } from '@ionic/vue'
+import { loadingController, actionSheetController } from '@ionic/vue'
 import {
     arrowForwardCircleOutline,
     printOutline,
     arrowBackOutline,
-    caretBackOutline
+    caretBackOutline,
+    layersOutline
 } from 'ionicons/icons'
 import { defineComponent } from 'vue'
 import axios from 'axios'
 import Printer from '../services/imin-printer.esm.browser'
 import { getStatusOrderDisplay } from '@/plugins/utils'
+import IonDatepicker from '@/components/IonDatepicker.vue'
 
 export default defineComponent({
     name: 'HistoryPage',
+    components: {
+        IonDatepicker
+    },
 
     data() {
         return {
@@ -127,9 +156,11 @@ export default defineComponent({
             printOutline,
             arrowBackOutline,
             caretBackOutline,
+            layersOutline,
             selectedOrder: null,
             orderList: [],
-            printerStatus: 'disconnected'
+            printerStatus: 'disconnected',
+            isLoadingOrders: false
         }
     },
 
@@ -180,13 +211,80 @@ export default defineComponent({
 
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.printer = new Printer()
-        this.initializePrinter()
+        // this.initializePrinter()
         await this.getOrderList()
     },
 
     methods: {
         getStatusOrder(status) {
             return getStatusOrderDisplay(status)
+        },
+        getStatusLabel(status) {
+            switch (status) {
+                case 'ALL':
+                    return 'ทั้งหมด'
+                case 'PRINTED':
+                    return 'พิมพ์แล้ว'
+                case 'PRINT':
+                    return 'ยังไม่พิมพ์'
+                case 'cooking':
+                    return 'กำลังทำอาหาร'
+                case 'sending':
+                    return 'รอจัดส่ง'
+                case 'complete':
+                    return 'เสร็จสมบูรณ์'
+                default:
+                    return 'ทั้งหมด'
+            }
+        },
+        async openStatusActionSheet() {
+            const actionSheet = await actionSheetController.create({
+                mode: 'ios',
+                header: 'เลือกสถานะ',
+                buttons: [
+                    {
+                        text: 'ทั้งหมด',
+                        handler: () => {
+                            this.form.status = 'ALL'
+                        }
+                    },
+                    {
+                        text: 'พิมพ์แล้ว',
+                        handler: () => {
+                            this.form.status = 'PRINTED'
+                        }
+                    },
+                    {
+                        text: 'ยังไม่พิมพ์',
+                        handler: () => {
+                            this.form.status = 'PRINT'
+                        }
+                    },
+                    {
+                        text: 'กำลังทำอาหาร',
+                        handler: () => {
+                            this.form.status = 'cooking'
+                        }
+                    },
+                    {
+                        text: 'รอจัดส่ง',
+                        handler: () => {
+                            this.form.status = 'sending'
+                        }
+                    },
+                    {
+                        text: 'เสร็จสมบูรณ์',
+                        handler: () => {
+                            this.form.status = 'complete'
+                        }
+                    },
+                    {
+                        text: 'ยกเลิก',
+                        role: 'cancel'
+                    }
+                ]
+            })
+            await actionSheet.present()
         },
         async initializePrinter() {
             this.printerStatus = 'connecting'
@@ -263,25 +361,32 @@ export default defineComponent({
         },
 
         async getOrderList() {
-            const value = localStorage.getItem('apiUrl')
-            const params = {
-                cooking_id: localStorage.getItem('kitchenId'),
-                date: dayjs(this.form.date).format('YYYY-MM-DD')
+            this.isLoadingOrders = true
+            try {
+                const value = localStorage.getItem('apiUrl')
+                const params = {
+                    cooking_id: localStorage.getItem('kitchenId'),
+                    date: dayjs(this.form.date).format('YYYY-MM-DD')
+                }
+                if (this.form.status !== 'ALL') {
+                    params.isPrint = this.form.status
+                }
+                if (this.form.orderNo) {
+                    params.orderNo = this.form.orderNo
+                }
+                const headers = {
+                    Authorization: 'Bearer ' + localStorage.getItem('token')
+                }
+                const res = await axios.get(`https://${value}/api/order/history`, {
+                    params: params,
+                    headers: headers
+                })
+                this.orderList = res.data
+            } catch (error) {
+                console.error('[HISTORY] Error loading orders:', error)
+            } finally {
+                this.isLoadingOrders = false
             }
-            if (this.form.status !== 'ALL') {
-                params.isPrint = this.form.status
-            }
-            if (this.form.orderNo) {
-                params.orderNo = this.form.orderNo
-            }
-            const headers = {
-                Authorization: 'Bearer ' + localStorage.getItem('token')
-            }
-            const res = await axios.get(`https://${value}/api/order/history`, {
-                params: params,
-                headers: headers
-            })
-            this.orderList = res.data
         },
 
         async updateStatusPrint(id) {
@@ -301,7 +406,6 @@ export default defineComponent({
         },
 
         async getPrinterStatus(type) {
-            const _this = this
             let reconnectNum = 0
             if (type) {
                 const checkStatus = setInterval(async () => {
@@ -324,6 +428,37 @@ export default defineComponent({
                 const status = await this.printer.getPrinterStatus()
                 console.log('status', status)
             }
+        },
+
+        getCardStyle(isPrint) {
+            if (isPrint === 'PRINT') {
+                return 'card-not-printed'
+            } else if (isPrint === 'PRINTED') {
+                return 'card-printed'
+            } else {
+                return ''
+            }
+        },
+
+        formatStatusToPascalCase(status) {
+            if (!status) return ''
+            // Convert to Pascal case (first letter uppercase, rest lowercase)
+            return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+        },
+
+        getBadgeClass(status) {
+            if (!status) return ''
+            const normalizedStatus = status.toLowerCase()
+            switch (normalizedStatus) {
+                case 'cooking':
+                    return 'badge-cooking'
+                case 'sending':
+                    return 'badge-sending'
+                case 'complete':
+                    return 'badge-complete'
+                default:
+                    return ''
+            }
         }
     }
 })
@@ -344,6 +479,16 @@ export default defineComponent({
     margin-left: 10px;
     outline: none;
 }
+.status-button {
+    width: 22% !important;
+    text-align: center;
+    cursor: pointer;
+    background-color: white;
+    font-size: 14px;
+}
+.status-button:active {
+    background-color: #f0f0f0;
+}
 .btn-search {
     background-color: #ffbb00;
     color: white;
@@ -358,76 +503,21 @@ export default defineComponent({
     background-color: #e86800;
 }
 
-.printer-status {
-    position: fixed;
-    bottom: 5px;
-    left: 30px;
-    display: flex;
-    align-items: center;
-    border-radius: 20px;
-    z-index: 1000;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 4px;
-    margin-top: 1.5px;
-}
-
-.status-text {
-    font-size: 12px;
-    font-weight: 500;
-    color: #333;
-}
-
-.status-connected {
-    background-color: #22c55e;
-    animation: pulse-green 2s infinite;
-}
-
-.status-error {
-    background-color: #ef4444;
-    animation: pulse-red 2s infinite;
-}
-
-.status-disconnected {
-    background-color: #6b7280;
-}
-
-.status-connecting {
-    background-color: #f59e0b;
-    animation: pulse-yellow 1s infinite;
-}
-
-@keyframes pulse-green {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
+.card-printed {
+    border: 3px solid #03ba81;
+    background-color: #f1fdf4;
+    padding-left: 10px;
+    ion-icon {
+        color: #03ba81;
     }
 }
+.card-not-printed {
+    border: 3px solid #e54644;
+    background-color: #fdf2f2;
+    padding-left: 10px;
 
-@keyframes pulse-red {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-@keyframes pulse-yellow {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
+    ion-icon {
+        color: #e54644;
     }
 }
 </style>

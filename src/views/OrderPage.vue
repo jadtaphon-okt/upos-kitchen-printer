@@ -10,6 +10,7 @@
                     >
                 </div>
                 <div class="action-left">
+                    <RouterLink class="box" to="/change-status"> อัพเดทสถานะอาหาร </RouterLink>
                     <RouterLink class="box" to="/history">
                         <ion-icon :icon="timeOutline" size="small"></ion-icon>
                         ประวัติ
@@ -26,21 +27,56 @@
         </ion-header>
 
         <ion-content v-if="!showDetail" :fullscreen="true" class="ion-padding bg-style">
-            <div class="order-item" v-for="item in orderStore">
+            <div v-if="isLoadingOrders" class="loading-container">
+                <ion-spinner name="crescent"></ion-spinner>
+                <span>Loading orders...</span>
+            </div>
+            <div v-else-if="orderStore.length === 0" class="empty-state">
+                <ion-icon :icon="layersOutline"></ion-icon>
+                <span>No orders available</span>
+            </div>
+            <div
+                v-else
+                class="order-item"
+                :class="{ 'new-item-animation': item.isNewItem }"
+                v-for="(item, index) in orderStore"
+                :key="item.id || index"
+            >
                 <div class="order-header">
-                    <div>Order No: {{ item.orderNo }}</div>
-                    <div>Order Date: {{ dayjs(item.orderDate).format('DD/MM/YYYY') }}</div>
+                    <div>
+                        Order No: <strong>{{ item.orderNo }}</strong>
+                    </div>
+                    <div>
+                        Order Date:
+                        <strong>{{ dayjs(item.orderDate).format('DD/MM/YYYY') }}</strong>
+                    </div>
                     <ion-icon
                         :icon="printOutline"
                         size="large"
                         @click="printOrder(item)"
                     ></ion-icon>
                 </div>
+                <div class="order-menu">
+                    <div>
+                        เลขโต๊ะ/ห้อง: <strong>{{ item.roomNo }}</strong> | ลูกค้า:
+                        <strong>{{ item.customerName }}</strong>
+                    </div>
+                    <div>
+                        เวลาสั่ง: <strong>{{ dayjs(item.orderDate).format('HH:mm') }}</strong>
+                    </div>
+                    <div class="text-ellipsis">
+                        เมนู: {{ item.orderItems.map(menu => menu.name).join(', ') }}
+                    </div>
+                </div>
                 <div class="order-status">
                     <div>
-                        Print Status: {{ item.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}
+                        Print Status: <br />
+                        <strong>{{ item.isPrint === 'PRINT' ? 'Not Printed' : 'Printed' }}</strong>
                     </div>
-                    <div>Order Status: {{ getStatusOrder(item.orderStatus) }}</div>
+                    <div>
+                        Order Status: <br />
+                        <strong>{{ getStatusOrder(item.orderStatus) }}</strong>
+                    </div>
                 </div>
                 <div class="order-go-detail" @click="openOrderDetail(item)">
                     <ion-icon :icon="arrowForwardCircleOutline" size="large"></ion-icon>
@@ -72,7 +108,7 @@
         </ion-content>
 
         <!-- Printer Status Indicator -->
-        <div class="printer-status">
+        <div class="printer-status" v-if="!showDetail">
             <div class="status-dot" :class="printerStatusClass"></div>
             <span class="status-text">{{ printerStatusText }}</span>
         </div>
@@ -88,7 +124,8 @@ import {
     timeOutline,
     settings,
     arrowForwardCircleOutline,
-    caretBackOutline
+    caretBackOutline,
+    layersOutline
 } from 'ionicons/icons'
 import { io } from 'socket.io-client'
 import { defineComponent } from 'vue'
@@ -108,6 +145,7 @@ export default defineComponent({
             print,
             timeOutline,
             syncOutline,
+            layersOutline,
             dayjs,
             logOut
         }
@@ -127,7 +165,8 @@ export default defineComponent({
             selectedOrder: null,
             kitchen: {},
             orderStore: [],
-            printerStatus: 'disconnected'
+            printerStatus: 'disconnected',
+            isLoadingOrders: true
         }
     },
 
@@ -164,7 +203,7 @@ export default defineComponent({
 
     async mounted() {
         this.printer = new Printer()
-        await this.initializePrinter()
+        // await this.initializePrinter()
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.isAutoPrint = localStorage.getItem('autoPrint') === 'true'
         this.kitchen = {
@@ -216,6 +255,7 @@ export default defineComponent({
 
         async handshakeWebShocket() {
             const url = localStorage.getItem('apiUrl')
+            this.isLoadingOrders = true
             this.ws = io(`wss://${url}/ws-orders`)
 
             this.ws.on('connect', () => {
@@ -224,18 +264,32 @@ export default defineComponent({
                 this.ws.on('new-order', msg => {
                     if (msg.orderList) {
                         this.orderStore = msg.orderList
+                        this.isLoadingOrders = false
                     }
                     if (this.isAutoPrint && msg.newOrder) {
                         // console.log('[WEBSOCKET] New order received:', msg.newOrder)
                         this.printOrder(msg.newOrder)
                     } else if (msg.newOrder) {
-                        this.orderStore.push(msg.newOrder)
+                        // Mark as new item for animation
+                        msg.newOrder.isNewItem = true
+                        this.orderStore.unshift(msg.newOrder)
+
+                        // Remove animation class after animation completes
+                        setTimeout(() => {
+                            const index = this.orderStore.findIndex(
+                                order => order.id === msg.newOrder.id
+                            )
+                            if (index !== -1) {
+                                this.orderStore[index].isNewItem = false
+                            }
+                        }, 1000)
                     }
                 })
             })
 
             this.ws.on('disconnect', () => {
                 console.log('[WEBSOCKET] disconnected')
+                this.isLoadingOrders = false
             })
         },
 
@@ -298,6 +352,7 @@ export default defineComponent({
 
         async reConnectWs() {
             const loading = await this.$toast.loading('Reconnecting...')
+            this.isLoadingOrders = true
             if (this.ws) {
                 this.ws.disconnect()
             }
@@ -312,7 +367,8 @@ export default defineComponent({
         },
 
         async getPrinterStatus(type) {
-            const _this = this
+            // eslint-disable-next-line @typescript-eslint/no-this-alias
+            const self = this
             let reconnectNum = 0
             if (type) {
                 const checkStatus = setInterval(async () => {
@@ -321,7 +377,7 @@ export default defineComponent({
                         this.loadingText = 'Printing status is normal.'
                         this.printerStatus = 'connected'
                         setTimeout(function () {
-                            _this.loading = false
+                            self.loading = false
                         }, 2000)
                         clearInterval(checkStatus)
                     } else if (status.value < 0) {
@@ -353,78 +409,5 @@ export default defineComponent({
     justify-content: space-between;
     align-items: center;
     margin-left: 10px;
-}
-
-.printer-status {
-    position: fixed;
-    bottom: 5px;
-    left: 30px;
-    display: flex;
-    align-items: center;
-    border-radius: 20px;
-    z-index: 1000;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 4px;
-    margin-top: 1.5px;
-}
-
-.status-text {
-    font-size: 12px;
-    font-weight: 500;
-    color: #333;
-}
-
-.status-connected {
-    background-color: #22c55e;
-    animation: pulse-green 2s infinite;
-}
-
-.status-error {
-    background-color: #ef4444;
-    animation: pulse-red 2s infinite;
-}
-
-.status-disconnected {
-    background-color: #6b7280;
-}
-
-.status-connecting {
-    background-color: #f59e0b;
-    animation: pulse-yellow 1s infinite;
-}
-
-@keyframes pulse-green {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-@keyframes pulse-red {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-@keyframes pulse-yellow {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
 }
 </style>
