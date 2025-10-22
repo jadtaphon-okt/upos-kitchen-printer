@@ -24,6 +24,11 @@ const routes: Array<RouteRecordRaw> = [
         path: '/history',
         name: 'HistoryPage',
         component: () => import('@/views/HistoryPage.vue')
+    },
+    {
+        path: '/change-status',
+        name: 'UpdateStatusPage',
+        component: () => import('@/views/UpdateStatusPage.vue')
     }
 ]
 
