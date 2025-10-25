@@ -246,36 +246,42 @@ export default defineComponent({
                         text: 'ทั้งหมด',
                         handler: () => {
                             this.form.status = 'ALL'
+                            this.form.receivedStatus = ''
                         }
                     },
                     {
                         text: 'พิมพ์แล้ว',
                         handler: () => {
                             this.form.status = 'PRINTED'
+                            this.form.receivedStatus = ''
                         }
                     },
                     {
                         text: 'ยังไม่พิมพ์',
                         handler: () => {
                             this.form.status = 'PRINT'
+                            this.form.receivedStatus = ''
                         }
                     },
                     {
                         text: 'กำลังทำอาหาร',
                         handler: () => {
                             this.form.status = 'cooking'
+                            this.form.receivedStatus = 'cooking'
                         }
                     },
                     {
                         text: 'รอจัดส่ง',
                         handler: () => {
                             this.form.status = 'sending'
+                            this.form.receivedStatus = 'sending'
                         }
                     },
                     {
                         text: 'เสร็จสมบูรณ์',
                         handler: () => {
                             this.form.status = 'complete'
+                            this.form.receivedStatus = 'complete'
                         }
                     },
                     {
@@ -368,11 +374,16 @@ export default defineComponent({
                     cooking_id: localStorage.getItem('kitchenId'),
                     date: dayjs(this.form.date).format('YYYY-MM-DD')
                 }
-                if (this.form.status !== 'ALL') {
-                    params.isPrint = this.form.status
-                }
+
                 if (this.form.orderNo) {
                     params.orderNo = this.form.orderNo
+                }
+                if (this.form.receivedStatus) {
+                    params.receivedStatus = this.form.receivedStatus
+                } else {
+                    if (this.form.status !== 'ALL') {
+                        params.isPrint = this.form.status
+                    }
                 }
                 const headers = {
                     Authorization: 'Bearer ' + localStorage.getItem('token')
