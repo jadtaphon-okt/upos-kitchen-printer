@@ -62,6 +62,7 @@
                 </div>
                 <div class="action">
                     <button
+                        v-if="order.receivedStatus !== 'complete'"
                         :class="{
                             'btn-sending': order.receivedStatus === 'cooking',
                             'btn-complete': order.receivedStatus !== 'cooking'
@@ -89,7 +90,7 @@ export default defineComponent({
         return {
             form: {
                 orderNo: '',
-                status: 'PRINT'
+                status: 'ALL'
             },
             kitchanName: 'Kitchan Name',
             arrowBackOutline,
@@ -171,7 +172,7 @@ export default defineComponent({
                     cooking_id: localStorage.getItem('kitchenId')
                 }
                 if (this.form.status !== 'ALL') {
-                    params.isPrint = this.form.status
+                    params.receivedStatus = this.form.status
                 }
                 if (this.form.orderNo) {
                     params.orderNo = this.form.orderNo
@@ -179,11 +180,14 @@ export default defineComponent({
                 const headers = {
                     Authorization: 'Bearer ' + localStorage.getItem('token')
                 }
-                const res = await axios.get(`https://${value}/api/order/history`, {
-                    params: params,
-                    headers: headers
-                })
-                this.orderList = res.data
+                const res = await axios.get(
+                    `https://${value}/api/order/update-order-status/cooking/list`,
+                    {
+                        params: params,
+                        headers: headers
+                    }
+                )
+                this.orderList = res.data.data
             } catch (error) {
                 console.error('[UPDATE STATUS] Error loading orders:', error)
             } finally {
@@ -226,7 +230,27 @@ export default defineComponent({
                     {
                         text: 'ยืนยัน',
                         handler: async () => {
-                            // call api to change status
+                            const nextStatus =
+                                order.receivedStatus === 'cooking' ? 'sending' : 'complete'
+                            try {
+                                const value = localStorage.getItem('apiUrl')
+                                const headers = {
+                                    Authorization: 'Bearer ' + localStorage.getItem('token')
+                                }
+                                await axios.put(
+                                    `https://${value}/api/order/update-order-status/cooking/${order.id}`,
+                                    {
+                                        ReceivedStatus: nextStatus
+                                    },
+                                    {
+                                        headers: headers
+                                    }
+                                )
+                            } catch (error) {
+                                console.error('[UPDATE STATUS] Error updating order status:', error)
+                            } finally {
+                                await this.getOrderList()
+                            }
                         }
                     }
                 ]
@@ -243,7 +267,7 @@ export default defineComponent({
     align-items: center;
 }
 .no-input {
-    width: 25%;
+    width: 35%;
     height: 33.2px;
     border-radius: 8px;
     color: black;
@@ -253,7 +277,7 @@ export default defineComponent({
     outline: none;
 }
 .status-button {
-    width: 22% !important;
+    width: 28% !important;
     text-align: center;
     cursor: pointer;
     background-color: white;
