@@ -211,7 +211,7 @@ export default defineComponent({
 
         this.kitchanName = localStorage.getItem('kitchenName') || 'UPOS Kitchan'
         this.printer = new Printer()
-        // this.initializePrinter()
+        this.initializePrinter()
         await this.getOrderList()
     },
 
