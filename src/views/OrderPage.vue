@@ -319,7 +319,7 @@ export default defineComponent({
             }
             this.printer.setTextSize(26)
             this.printer.printText('==========================')
-            this.printer.setTextSize(28)
+            this.printer.setTextSize(38)
             this.printer.printText(`Note: ${item.orderNote || '-'}`)
             this.printer.printAndFeedPaper(50)
             this.updateStatusPrint(item.id)
